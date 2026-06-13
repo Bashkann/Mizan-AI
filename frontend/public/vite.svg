@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#C9A84C"/>
+      <stop offset="100%" style="stop-color:#E8C76A"/>
+    </linearGradient>
+  </defs>
+  <!-- Scales of Justice favicon -->
+  <line x1="50" y1="15" x2="50" y2="85" stroke="url(#gold)" stroke-width="3"/>
+  <line x1="25" y1="35" x2="75" y2="35" stroke="url(#gold)" stroke-width="3"/>
+  <circle cx="50" cy="15" r="4" fill="url(#gold)"/>
+  <path d="M20,35 L25,55 L30,35" fill="none" stroke="url(#gold)" stroke-width="2"/>
+  <path d="M18,55 Q25,65 32,55" fill="none" stroke="url(#gold)" stroke-width="2"/>
+  <path d="M70,35 L75,55 L80,35" fill="none" stroke="url(#gold)" stroke-width="2"/>
+  <path d="M68,55 Q75,65 82,55" fill="none" stroke="url(#gold)" stroke-width="2"/>
+  <rect x="40" y="82" width="20" height="5" rx="2" fill="url(#gold)"/>
+</svg>
