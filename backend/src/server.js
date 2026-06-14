@@ -92,20 +92,27 @@ app.use((err, req, res, _next) => {
 
 // ─── Server Startup ─────────────────────────────────────────────────────────────
 
+const isVercel = process.env.VERCEL === '1';
+
 const startServer = async () => {
   try {
-    // Initialize database schema
+    // In serverless environments, we shouldn't run DDL commands on every cold start,
+    // but if we do, we definitely shouldn't crash the function if it times out.
     await initializeDatabase();
     console.log('Database schema initialized');
 
-    app.listen(PORT, () => {
-      console.log(`MİZAN AI Backend running on port ${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`Health check: http://localhost:${PORT}/api/health`);
-    });
+    if (!isVercel) {
+      app.listen(PORT, () => {
+        console.log(`MİZAN AI Backend running on port ${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`Health check: http://localhost:${PORT}/api/health`);
+      });
+    }
   } catch (err) {
-    console.error('Failed to start server:', err.message);
-    process.exit(1);
+    console.error('Failed to start server/initialize DB:', err.message);
+    if (!isVercel) {
+      process.exit(1);
+    }
   }
 };
 
