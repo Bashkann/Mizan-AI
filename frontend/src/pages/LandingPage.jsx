@@ -4,13 +4,48 @@ import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 
 /* ─── Intersection Observer Hook ─── */
-// Removed useInView, using scrolled state instead for foolproof animations.
+function useInView(options = {}) {
+  const ref = useRef(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setInView(true); obs.unobserve(el); }
+    }, { threshold: 0, rootMargin: '0px 0px -100px 0px', ...options });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return [ref, inView];
+}
+
+/* ─── Premium SVG Icons ─── */
+const IconCheck = () => (
+  <svg className="w-5 h-5 text-success drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+  </svg>
+);
+const IconCross = () => (
+  <svg className="w-5 h-5 text-text-muted opacity-50" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+const IconWarning = () => (
+  <svg className="w-5 h-5 text-warning drop-shadow-[0_0_6px_rgba(245,158,11,0.4)]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+  </svg>
+);
+const IconQuestion = () => (
+  <svg className="w-5 h-5 text-text-muted opacity-50" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
 
 export default function LandingPage() {
   const { isAuthenticated, loading, login } = useAuth();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
-  const [tableInView, setTableInView] = useState(false);
+  const [tableRef, tableInView] = useInView();
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -21,13 +56,8 @@ export default function LandingPage() {
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
-      if (window.scrollY > 200) {
-        setTableInView(true);
-      }
     };
     window.addEventListener('scroll', handleScroll);
-    // Initial check
-    handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -40,19 +70,22 @@ export default function LandingPage() {
   }
 
   const comparisonRows = [
-    { feature: 'Emsal Karar Araması', mizan: 'Gerçek Yargıtay kararları', mizanIcon: '✅', other: 'Mevcut değil', otherIcon: '❌' },
-    { feature: 'Hallüsinasyon Riski', mizan: 'Sıfır — sadece gerçek veri', mizanIcon: '✅', other: 'Yüksek risk', otherIcon: '⚠️' },
-    { feature: 'Türk Mevzuatı', mizan: 'Güncel ve kapsamlı', mizanIcon: '✅', other: 'Sınırlı bilgi', otherIcon: '⚠️' },
-    { feature: 'Kaynak Şeffaflığı', mizan: 'Her cevap kaynakla', mizanIcon: '✅', other: 'Kaynak gösterilmez', otherIcon: '❌' },
-    { feature: 'Hukuki İş Akışı', mizan: 'Avukatlar için tasarlandı', mizanIcon: '✅', other: 'Genel amaçlı', otherIcon: '❌' },
-    { feature: 'Veri Gizliliği', mizan: 'Eğitimde kullanılmaz', mizanIcon: '✅', other: 'Belirsiz', otherIcon: '❓' },
+    { feature: 'Emsal Karar Araması', mizan: 'Gerçek Yargıtay kararları', mizanIcon: 'check', other: 'Mevcut değil', otherIcon: 'cross' },
+    { feature: 'Hallüsinasyon Riski', mizan: 'Sıfır — sadece gerçek veri', mizanIcon: 'check', other: 'Yüksek risk', otherIcon: 'warning' },
+    { feature: 'Türk Mevzuatı', mizan: 'Güncel ve kapsamlı', mizanIcon: 'check', other: 'Sınırlı bilgi', otherIcon: 'warning' },
+    { feature: 'Kaynak Şeffaflığı', mizan: 'Her cevap kaynakla', mizanIcon: 'check', other: 'Kaynak gösterilmez', otherIcon: 'cross' },
+    { feature: 'Hukuki İş Akışı', mizan: 'Avukatlar için tasarlandı', mizanIcon: 'check', other: 'Genel amaçlı', otherIcon: 'cross' },
+    { feature: 'Veri Gizliliği', mizan: 'Eğitimde kullanılmaz', mizanIcon: 'check', other: 'Belirsiz', otherIcon: 'question' },
   ];
 
-  const getIconClass = (icon) => {
-    if (icon === '✅') return 'icon-success';
-    if (icon === '❌') return 'icon-error';
-    if (icon === '⚠️' || icon === '❓') return 'icon-warning';
-    return '';
+  const getIcon = (type) => {
+    switch (type) {
+      case 'check': return <IconCheck />;
+      case 'cross': return <IconCross />;
+      case 'warning': return <IconWarning />;
+      case 'question': return <IconQuestion />;
+      default: return null;
+    }
   };
 
   return (
@@ -166,42 +199,51 @@ export default function LandingPage() {
       </section>
 
       {/* ── COMPARISON TABLE ── */}
-      <section className="py-24 bg-bg-surface border-y border-border relative z-10">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className={`text-center mb-12 transition-all duration-700 ${tableInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[30px]'}`}>
-            <h2 className="font-heading text-4xl font-bold mb-4">Sıradan Yapay Zekadan Farkımız</h2>
-            <p className="text-text-secondary text-lg">Genel amaçlı modellerin aksine, doğrudan Türk hukuk verisiyle çalışır.</p>
+      <section className="py-32 bg-bg-surface relative z-10 overflow-hidden" ref={tableRef}>
+        {/* Subtle decorative glow for table section */}
+        <div className="absolute inset-0 flex justify-center items-center pointer-events-none opacity-30">
+          <div className="w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]"></div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-6 relative z-10">
+          <div className={`text-center mb-16 transition-all duration-[1000ms] ${tableInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[40px]'}`}>
+            <h2 className="font-heading text-4xl sm:text-5xl font-bold mb-4 tracking-tight">Sıradan Yapay Zekadan Farkımız</h2>
+            <p className="text-text-secondary text-lg max-w-2xl mx-auto">Genel amaçlı modellerin aksine, doğrudan Türk hukuk verisiyle çalışır.</p>
           </div>
           
-          <div className="overflow-x-auto bg-bg-primary border border-border rounded-2xl shadow-sm">
+          <div className={`overflow-x-auto bg-bg-primary/40 backdrop-blur-md border border-border/60 rounded-3xl shadow-2xl transition-all duration-[1200ms] delay-300 ${tableInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[50px]'}`}>
             <table className="comparison-table w-full">
               <thead>
                 <tr>
-                  <th>Özellik</th>
-                  <th className="col-mizan">MİZAN AI</th>
-                  <th>Genel Yapay Zekalar</th>
+                  <th className="w-1/3">Özellik</th>
+                  <th className="col-mizan w-1/3">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-xl leading-none">⚖️</span>
+                      MİZAN AI
+                    </div>
+                  </th>
+                  <th className="w-1/3 text-center">Genel Yapay Zekalar</th>
                 </tr>
               </thead>
               <tbody>
                 {comparisonRows.map((row, idx) => {
-                  // Staggered animation style
                   const animStyle = tableInView 
-                    ? { opacity: 1, transform: 'translateY(0)', transition: `all 500ms cubic-bezier(0.4, 0, 0.2, 1) ${idx * 150}ms` } 
-                    : { opacity: 0, transform: 'translateY(30px)' };
+                    ? { opacity: 1, transform: 'translateY(0)', transition: `all 800ms cubic-bezier(0.2, 0.8, 0.2, 1) ${600 + (idx * 150)}ms` } 
+                    : { opacity: 0, transform: 'translateY(20px)' };
                   
                   return (
                     <tr key={idx} style={animStyle}>
-                      <td className="font-semibold">{row.feature}</td>
+                      <td className="font-semibold text-text-primary/90">{row.feature}</td>
                       <td className="col-mizan">
-                        <div className="flex items-center gap-2">
-                          <span className={getIconClass(row.mizanIcon)}>{row.mizanIcon}</span>
-                          <span className="text-text-primary font-medium">{row.mizan}</span>
+                        <div className="flex items-center justify-center gap-3">
+                          {getIcon(row.mizanIcon)}
+                          <span className="text-text-primary font-medium tracking-wide">{row.mizan}</span>
                         </div>
                       </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <span className={getIconClass(row.otherIcon)}>{row.otherIcon}</span>
-                          <span className="text-text-secondary">{row.other}</span>
+                      <td className="text-center">
+                        <div className="flex items-center justify-center gap-3">
+                          {getIcon(row.otherIcon)}
+                          <span className="text-text-secondary font-medium">{row.other}</span>
                         </div>
                       </td>
                     </tr>

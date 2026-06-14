@@ -1,4 +1,4 @@
-<![CDATA[# ⚖️ MİZAN AI — Türk Hukuku Yapay Zeka Asistanı
+# ⚖️ MİZAN AI — Türk Hukuku Yapay Zeka Asistanı
 
 MİZAN AI is a production-ready Turkish legal AI assistant powered by **Retrieval-Augmented Generation (RAG)**. It helps legal professionals find relevant precedent cases (*emsal kararlar*) from Turkish courts and provides structured legal analysis — all grounded in real case data with zero hallucination.
 
@@ -198,4 +198,3 @@ Contributions are welcome! Please open an issue first to discuss proposed change
 ---
 
 **MİZAN AI © 2026** — *Adaletin ölçüsü, bilginin gücüdür.*
-]]>
