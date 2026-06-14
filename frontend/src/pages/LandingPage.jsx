@@ -3,22 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 
-/* ─── Intersection Observer Hook ─── */
-function useInView(options = {}) {
-  const ref = useRef(null);
-  const [inView, setInView] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) { setInView(true); obs.unobserve(el); }
-    }, { threshold: 0, rootMargin: '0px 0px -100px 0px', ...options });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return [ref, inView];
-}
-
 /* ─── Premium SVG Icons ─── */
 const IconCheck = () => (
   <svg className="w-5 h-5 text-success drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -45,7 +29,7 @@ export default function LandingPage() {
   const { isAuthenticated, loading, login } = useAuth();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
-  const [tableRef, tableInView] = useInView();
+  const [tableInView, setTableInView] = useState(false);
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -56,8 +40,12 @@ export default function LandingPage() {
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
+      if (window.scrollY > 150) {
+        setTableInView(true);
+      }
     };
     window.addEventListener('scroll', handleScroll);
+    handleScroll(); // Check on mount
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -199,7 +187,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── COMPARISON TABLE ── */}
-      <section className="py-32 bg-bg-surface relative z-10 overflow-hidden" ref={tableRef}>
+      <section className="py-32 bg-bg-surface relative z-10 overflow-hidden">
         {/* Subtle decorative glow for table section */}
         <div className="absolute inset-0 flex justify-center items-center pointer-events-none opacity-30">
           <div className="w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]"></div>
