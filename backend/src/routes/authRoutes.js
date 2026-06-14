@@ -39,8 +39,8 @@ router.get(
       // Set httpOnly cookie
       res.cookie('mizan_token', token, getCookieOptions());
 
-      // Redirect to frontend dashboard
-      res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
+      // Redirect to frontend dashboard with token in URL (fallback for 3rd-party cookie blocking)
+      res.redirect(`${process.env.FRONTEND_URL}/dashboard?token=${token}`);
     } catch (err) {
       console.error('Auth callback error:', err.message);
       res.redirect(`${process.env.FRONTEND_URL}/login?error=server_error`);

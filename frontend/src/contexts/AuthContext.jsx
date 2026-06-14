@@ -16,6 +16,16 @@ export function AuthProvider({ children }) {
   const checkAuth = useCallback(async () => {
     try {
       setLoading(true);
+
+      // Check if we just returned from OAuth with a token in the URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('token');
+      if (urlToken) {
+        localStorage.setItem('mizan_token', urlToken);
+        // Clean the URL without reloading the page
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
       const response = await api.get('/api/auth/me');
       if (response.data && response.data.user) {
         setUser(response.data.user);
@@ -49,6 +59,7 @@ export function AuthProvider({ children }) {
       console.error('Logout request failed:', error);
     } finally {
       setUser(null);
+      localStorage.removeItem('mizan_token');
       window.location.href = '/';
     }
   }, []);

@@ -9,6 +9,18 @@ const api = axios.create({
   },
 });
 
+// Request interceptor to attach Bearer token if it exists
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('mizan_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 // Response interceptor to handle 401 (unauthorized) globally
 api.interceptors.response.use(
   (response) => response,
