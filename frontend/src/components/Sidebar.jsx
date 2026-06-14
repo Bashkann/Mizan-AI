@@ -1,23 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 /**
- * Sidebar component with logo, navigation, query history, and user profile.
- * Collapsible on mobile via hamburger menu.
+ * Sidebar with collapse/expand functionality.
+ * Collapsed: 60px, icons only. Expanded: 260px, full labels.
+ * Persists state to localStorage.
  */
 export default function Sidebar({ history = [], onNewQuery }) {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('sidebar-collapsed') === 'true'; } catch { return false; }
+  });
   const navigate = useNavigate();
+
+  useEffect(() => {
+    try { localStorage.setItem('sidebar-collapsed', String(collapsed)); } catch {}
+  }, [collapsed]);
 
   const handleNewQuery = () => {
     setMobileOpen(false);
-    if (onNewQuery) {
-      onNewQuery();
-    } else {
-      navigate('/dashboard');
-    }
+    if (onNewQuery) onNewQuery();
+    else navigate('/dashboard');
   };
 
   const handleHistoryClick = (item) => {
@@ -25,20 +30,18 @@ export default function Sidebar({ history = [], onNewQuery }) {
     navigate('/dashboard', { state: { query: item.query } });
   };
 
-  // Truncate text to a max length with ellipsis
-  const truncate = (text, maxLen = 60) => {
+  const truncate = (text, maxLen = 50) => {
     if (!text) return '';
-    return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
+    return text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
   };
 
   const sidebarContent = (
     <>
-      {/* Logo section */}
-      <div className="px-5 py-6 border-b border-border">
-        <NavLink to="/dashboard" className="flex items-center gap-3 group" onClick={() => setMobileOpen(false)}>
-          {/* Scales of Justice icon */}
-          <div className="w-9 h-9 shrink-0">
-            <svg viewBox="0 0 40 40" fill="none" className="w-full h-full">
+      {/* Logo + collapse toggle */}
+      <div className={`sidebar-logo-section ${collapsed ? 'sidebar-logo-section--collapsed' : ''}`}>
+        <NavLink to="/dashboard" className="sidebar-logo-link" onClick={() => setMobileOpen(false)}>
+          <div className="sidebar-logo-icon">
+            <svg viewBox="0 0 40 40" fill="none" width="28" height="28">
               <circle cx="20" cy="6" r="3" fill="#C9A84C" />
               <line x1="20" y1="9" x2="20" y2="34" stroke="#C9A84C" strokeWidth="2" />
               <line x1="8" y1="14" x2="32" y2="14" stroke="#C9A84C" strokeWidth="2" />
@@ -49,160 +52,139 @@ export default function Sidebar({ history = [], onNewQuery }) {
               <rect x="14" y="33" width="12" height="3" rx="1.5" fill="#C9A84C" />
             </svg>
           </div>
-          <div>
-            <h1 className="font-heading text-xl font-bold text-primary group-hover:text-primary-hover transition-colors">
-              MİZAN AI
-            </h1>
-            <p className="text-[10px] text-text-muted tracking-widest uppercase">
-              Hukuk Asistanı
-            </p>
-          </div>
+          {!collapsed && (
+            <div>
+              <h1 className="sidebar-logo-title">MİZAN AI</h1>
+              <p className="sidebar-logo-subtitle">Hukuk Asistanı</p>
+            </div>
+          )}
         </NavLink>
-      </div>
 
-      {/* New Query button */}
-      <div className="px-4 py-4">
+        {/* Collapse/Expand button — desktop only */}
         <button
-          onClick={handleNewQuery}
-          className="
-            w-full flex items-center justify-center gap-2 px-4 py-2.5
-            bg-primary hover:bg-primary-hover text-bg-primary
-            font-semibold text-sm rounded-lg
-            transition-all duration-200 cursor-pointer
-            focus-ring
-          "
+          onClick={() => setCollapsed(!collapsed)}
+          className="sidebar-collapse-btn hidden lg:flex"
+          aria-label={collapsed ? 'Genişlet' : 'Daralt'}
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            {collapsed ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            )}
           </svg>
-          Yeni Sorgu
         </button>
       </div>
 
-      {/* Navigation links */}
-      <nav className="px-3 mb-2">
+      {/* New Query */}
+      <div className="sidebar-new-query">
+        <button onClick={handleNewQuery} className="sidebar-new-query-btn" title="Yeni Sorgu">
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          {!collapsed && <span>Yeni Sorgu</span>}
+        </button>
+      </div>
+
+      {/* Navigation */}
+      <nav className="sidebar-nav">
         <NavLink
           to="/dashboard"
           onClick={() => setMobileOpen(false)}
           className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-              isActive
-                ? 'bg-primary-muted text-primary border-l-2 border-primary'
-                : 'text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover'
-            }`
+            `sidebar-nav-item ${isActive ? 'sidebar-nav-item--active' : ''}`
           }
+          title="Ana Sayfa"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
           </svg>
-          Ana Sayfa
+          {!collapsed && <span>Ana Sayfa</span>}
         </NavLink>
         <NavLink
           to="/history"
           onClick={() => setMobileOpen(false)}
           className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 mt-1 ${
-              isActive
-                ? 'bg-primary-muted text-primary border-l-2 border-primary'
-                : 'text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover'
-            }`
+            `sidebar-nav-item ${isActive ? 'sidebar-nav-item--active' : ''}`
           }
+          title="Geçmiş"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Geçmiş
+          {!collapsed && <span>Geçmiş</span>}
         </NavLink>
       </nav>
 
-      {/* Query history section */}
-      <div className="flex-1 overflow-y-auto px-3 pb-4">
-        <h3 className="px-3 py-2 text-xs font-semibold text-text-muted uppercase tracking-wider">
-          Son Sorgular
-        </h3>
-        {history.length === 0 ? (
-          <p className="px-3 py-2 text-xs text-text-muted italic">
-            Henüz sorgu yok
-          </p>
-        ) : (
-          <ul className="space-y-0.5">
-            {history.slice(0, 10).map((item, index) => (
-              <li key={item.id || index}>
-                <button
-                  onClick={() => handleHistoryClick(item)}
-                  className="
-                    w-full text-left px-3 py-2 rounded-lg
-                    text-xs text-text-secondary
-                    hover:text-text-primary hover:bg-bg-surface-hover
-                    transition-all duration-200 cursor-pointer
-                    truncate block
-                  "
-                  title={item.query}
-                >
-                  {truncate(item.query)}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* User section at bottom */}
-      <div className="border-t border-border p-4 mt-auto">
-        <div className="flex items-center gap-3 mb-3">
-          {/* User avatar */}
-          {user?.picture ? (
-            <img
-              src={user.picture}
-              alt={user.name || 'Kullanıcı'}
-              className="w-8 h-8 rounded-full border border-border object-cover"
-              referrerPolicy="no-referrer"
-            />
+      {/* History */}
+      {!collapsed && (
+        <div className="sidebar-history">
+          <h3 className="sidebar-history-title">Son Sorgular</h3>
+          {history.length === 0 ? (
+            <p className="sidebar-history-empty">Henüz sorgu yok</p>
           ) : (
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-              <span className="text-xs font-bold text-primary">
-                {user?.name?.charAt(0)?.toUpperCase() || 'K'}
-              </span>
-            </div>
+            <ul className="sidebar-history-list">
+              {history.slice(0, 10).map((item, index) => (
+                <li key={item.id || index}>
+                  <button
+                    onClick={() => handleHistoryClick(item)}
+                    className="sidebar-history-item"
+                    title={item.query}
+                  >
+                    {truncate(item.query)}
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-text-primary truncate">
-              {user?.name || 'Kullanıcı'}
-            </p>
-            <p className="text-xs text-text-muted truncate">
-              {user?.email || ''}
-            </p>
-          </div>
         </div>
-        <button
-          onClick={logout}
-          className="
-            w-full flex items-center justify-center gap-2 px-3 py-2
-            text-sm text-text-secondary
-            hover:text-error hover:bg-error/10
-            rounded-lg transition-all duration-200 cursor-pointer
-          "
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-          </svg>
-          Çıkış Yap
-        </button>
+      )}
+
+      {/* User */}
+      <div className={`sidebar-user ${collapsed ? 'sidebar-user--collapsed' : ''}`}>
+        {!collapsed ? (
+          <>
+            <div className="sidebar-user-info">
+              {user?.picture ? (
+                <img src={user.picture} alt={user.name || 'Kullanıcı'} className="sidebar-user-avatar" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="sidebar-user-avatar-placeholder">
+                  <span>{user?.name?.charAt(0)?.toUpperCase() || 'K'}</span>
+                </div>
+              )}
+              <div className="sidebar-user-text">
+                <p className="sidebar-user-name">{user?.name || 'Kullanıcı'}</p>
+                <p className="sidebar-user-email">{user?.email || ''}</p>
+              </div>
+            </div>
+            <button onClick={logout} className="sidebar-logout-btn">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+              </svg>
+              Çıkış Yap
+            </button>
+          </>
+        ) : (
+          <div className="sidebar-user-collapsed-avatar">
+            {user?.picture ? (
+              <img src={user.picture} alt="" className="sidebar-user-avatar" referrerPolicy="no-referrer" title={user.name} />
+            ) : (
+              <div className="sidebar-user-avatar-placeholder" title={user?.name}>
+                <span>{user?.name?.charAt(0)?.toUpperCase() || 'K'}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
 
   return (
     <>
-      {/* Mobile hamburger button */}
+      {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="
-          lg:hidden fixed top-4 left-4 z-50
-          p-2 rounded-lg bg-bg-surface border border-border
-          text-text-primary hover:text-primary
-          transition-colors cursor-pointer
-        "
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-bg-surface border border-border text-text-primary hover:text-primary transition-colors cursor-pointer"
         aria-label="Menü"
       >
         {mobileOpen ? (
@@ -226,13 +208,7 @@ export default function Sidebar({ history = [], onNewQuery }) {
 
       {/* Sidebar */}
       <aside
-        className={`
-          fixed lg:sticky top-0 left-0 z-40
-          w-72 h-screen bg-bg-surface border-r border-border
-          flex flex-col
-          transition-transform duration-300 ease-in-out
-          ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
+        className={`sidebar-aside ${collapsed ? 'sidebar-aside--collapsed' : ''} ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {sidebarContent}
       </aside>

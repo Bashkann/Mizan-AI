@@ -59,7 +59,7 @@ const initializeDatabase = async () => {
         decision_date DATE,
         subject TEXT,
         content TEXT NOT NULL,
-        embedding vector(768),
+        embedding vector(3072),
         source VARCHAR(255),
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -73,17 +73,15 @@ const initializeDatabase = async () => {
         query_text TEXT NOT NULL,
         response TEXT,
         cited_case_id UUID REFERENCES precedent_cases(id),
+        confidence_score INTEGER,
+        cited_case_metadata JSONB,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
-    // HNSW index for fast vector similarity search
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_precedent_cases_embedding
-      ON precedent_cases
-      USING hnsw (embedding vector_cosine_ops)
-      WITH (m = 16, ef_construction = 64);
-    `);
+    // Note: HNSW index is omitted because pgvector supports up to 2000 dimensions for HNSW,
+    // and our gemini-embedding-001 vectors are 3072 dimensions.
+    // We will use exact nearest neighbor search (seq scan) which is fine for our dataset size.
 
     // Index on user queries for faster history retrieval
     await client.query(`

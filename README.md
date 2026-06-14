@@ -72,10 +72,32 @@ npm run dev
 
 ### 4. Ingest Sample Data
 
+You can ingest the initial 10 hardcoded test cases via:
 ```bash
 cd backend
 npm run ingest
 ```
+
+### 5. Veritabanına Gerçek Veri Yükleme (HuggingFace Ingestion)
+
+To populate the database with real case law and regulations from the `newmindai` public HuggingFace datasets, run the dedicated ingestion script. This script fetches 100 case laws and 100 regulations, cleans the text, chunks them into ~600 word pieces, embeds them via Gemini `text-embedding-004`, and upserts them into your Neon vector database.
+
+```bash
+cd backend
+npm run ingest:hf
+```
+
+**Expected Results:**
+- **caselaw-retrieval**: ~100 records fetched, which may be chunked into more pieces.
+- **regulation-retrieval**: ~100 records fetched, chunked similarly.
+- You can expect to see progress logs (`Ingesting record X of Y...`) in the terminal.
+
+**Verification in Neon Console:**
+1. Open the [Neon Console](https://console.neon.tech).
+2. Go to your project -> SQL Editor.
+3. Run the following queries to verify the records:
+   - `SELECT COUNT(*) FROM precedent_cases;` (Should reflect the newly added chunks)
+   - `SELECT source, COUNT(*) FROM precedent_cases GROUP BY source;` (Should show `huggingface-caselaw` and `huggingface-regulation`)
 
 ## 🔑 Environment Variables
 

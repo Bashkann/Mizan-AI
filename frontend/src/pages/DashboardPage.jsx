@@ -5,6 +5,8 @@ import { useToast } from '../components/Toast';
 import Sidebar from '../components/Sidebar';
 import ResultsPanel from '../components/ResultsPanel';
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import ScalesOfJustice from '../components/ScalesOfJustice';
+import ThemeToggle from '../components/ThemeToggle';
 import api from '../api/axios';
 
 /**
@@ -18,24 +20,59 @@ export default function DashboardPage() {
   const textareaRef = useRef(null);
 
   const [caseDescription, setCaseDescription] = useState('');
-  const [result, setResult] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [uploadedFile, setUploadedFile] = useState(null);
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const fileInputRef = useRef(null);
 
-  const MIN_CHARS = 50;
-  const MAX_CHARS = 2000;
-  const charCount = caseDescription.length;
-  const isValid = charCount >= MIN_CHARS && charCount <= MAX_CHARS;
+  // Character constraints removed
 
   // If navigated with state.query, pre-fill textarea
   useEffect(() => {
     if (location.state?.query) {
       setCaseDescription(location.state.query);
-      // Clear the state to avoid re-filling on re-render
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading]);
+
+  const decodeHtml = (html) => {
+    if (!html) return '';
+    const txt = document.createElement('textarea');
+    txt.innerHTML = html;
+    return txt.value;
+  };
+
+  // Loading steps progress
+  useEffect(() => {
+    let timer;
+    if (loading) {
+      setLoadingStep(0);
+      timer = setInterval(() => {
+        setLoadingStep((prev) => (prev < 2 ? prev + 1 : prev));
+      }, 2500); // changes step every 2.5s
+    } else {
+      setLoadingStep(0);
+    }
+    return () => clearInterval(timer);
+  }, [loading]);
+
+  const loadingSteps = [
+    "Belge okunuyor...",
+    "Emsal aranıyor...",
+    "Analiz yapılıyor..."
+  ];
 
   // Fetch query history on mount
   useEffect(() => {
@@ -58,39 +95,57 @@ export default function DashboardPage() {
 
   // Submit case description for RAG analysis
   const handleSubmit = async () => {
-    if (!isValid) {
-      toast.error(
-        charCount < MIN_CHARS
-          ? `Lütfen en az ${MIN_CHARS} karakter girin (${charCount}/${MIN_CHARS})`
-          : `Metin ${MAX_CHARS} karakteri aşamaz`
-      );
-      return;
+    if (!uploadedFile && !caseDescription.trim()) {
+      return; // Do nothing if input is empty
     }
 
     try {
       setLoading(true);
-      setResult(null);
 
-      const response = await api.post('/api/mizan/query', {
-        caseDescription: caseDescription.trim(),
-      });
+      const userQuery = caseDescription.trim() || (uploadedFile ? `Belge Yüklendi: ${uploadedFile.name}` : '');
+      setMessages((prev) => [...prev, { role: 'user', content: userQuery }]);
+      
+      const currentCaseDesc = caseDescription.trim();
+      setCaseDescription(''); // Clear immediately for better UX
+      
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '84px'; // Reset height
+      }
 
-      const data = response.data.data || response.data;
+      if (uploadedFile) {
+        const formData = new FormData();
+        formData.append('document', uploadedFile);
+        
+        const response = await api.post('/api/mizan/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
 
-      // Parse the analysis into structured sections
-      const parsed = parseAnalysis(data.analysis, data.citedCase, data.confidence);
-      setResult(parsed);
+        const data = response.data.data;
+        const parsed = parseAnalysis(data.analysis, data.citedCase, data.confidence, data.mode);
+        setMessages((prev) => [...prev, { role: 'ai', result: parsed }]);
+      } else {
+        const response = await api.post('/api/mizan/query', {
+          caseDescription: currentCaseDesc,
+        });
+
+        const data = response.data.data || response.data;
+        const parsed = parseAnalysis(data.analysis, data.citedCase, data.confidence, data.mode);
+        setMessages((prev) => [...prev, { role: 'ai', result: parsed }]);
+      }
 
       // Refresh history
       fetchHistory();
-
-      toast.success('Analiz tamamlandı');
+      setUploadedFile(null);
     } catch (error) {
-      const message =
-        error.response?.data?.error ||
-        error.response?.data?.message ||
-        'Bir hata oluştu. Lütfen tekrar deneyin.';
-      toast.error(message);
+      const errorMessage = error.response?.data?.message || 'Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.';
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'ai',
+          error: true,
+          result: { mode: 'error', conclusion: errorMessage },
+        },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -99,28 +154,53 @@ export default function DashboardPage() {
   // Handle new query — clear results and focus textarea
   const handleNewQuery = () => {
     setCaseDescription('');
-    setResult(null);
+    setMessages([]);
+    setUploadedFile(null);
+    if (textareaRef.current) textareaRef.current.style.height = '84px';
     textareaRef.current?.focus();
+  };
+
+  // Handle File Upload
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Sadece PDF ve DOCX dosyaları desteklenmektedir.');
+      return;
+    }
+
+    // Check file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Dosya boyutu 10MB'dan küçük olmalıdır.");
+      return;
+    }
+
+    setUploadedFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Handle keyboard shortcut (Ctrl/Cmd + Enter to submit)
   const handleKeyDown = (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && isValid && !loading) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && (caseDescription.trim() || uploadedFile) && !loading) {
       handleSubmit();
     }
   };
 
-  // Character count color
-  const getCharCountColor = () => {
-    if (charCount === 0) return 'text-text-muted';
-    if (charCount < MIN_CHARS) return 'text-error';
-    if (charCount > MAX_CHARS) return 'text-error';
-    if (charCount > MAX_CHARS * 0.9) return 'text-yellow-500';
-    return 'text-text-secondary';
-  };
+  // handleKeyDown
 
   return (
-    <div className="min-h-screen bg-bg-primary flex">
+    <div className="min-h-screen bg-bg-primary flex dashboard-root">
+      {/* Fixed Theme Toggle */}
+      <div className="fixed top-5 right-5 z-[1000]">
+        <ThemeToggle />
+      </div>
+
       {/* Sidebar */}
       <Sidebar
         history={history.map((h) => ({
@@ -134,121 +214,205 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="flex-1 min-h-screen lg:pl-0">
         <div className="max-w-4xl mx-auto px-6 md:px-10 py-8 md:py-12 pt-16 lg:pt-8">
-          {/* Welcome header */}
-          <div className="mb-8 animate-fade-in">
-            <h2 className="font-heading text-2xl md:text-3xl font-bold text-text-primary mb-2">
-              Hoş geldiniz{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
-            </h2>
-            <p className="text-text-secondary text-sm">
-              Davanızın detaylarını girerek emsal karar analizi alın.
-            </p>
-          </div>
 
-          {/* Query input section */}
-          <div className="animate-fade-in-up delay-100">
-            <div className="bg-bg-surface border border-border rounded-2xl p-6 mb-6">
-              {/* Textarea */}
-              <div className="relative">
-                <textarea
-                  ref={textareaRef}
-                  id="case-description-input"
-                  value={caseDescription}
-                  onChange={(e) => setCaseDescription(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Davanızın detaylarını girin... Örnek: İşçi, 5 yıllık kıdem süresinin ardından haksız yere işten çıkarılmıştır. İşveren herhangi bir yazılı uyarı vermemiş ve kıdem tazminatı ödememiştir. İşçi, iş mahkemesine başvurarak işe iade ve kıdem tazminatı talep etmektedir."
-                  rows={6}
-                  maxLength={MAX_CHARS + 100}
-                  className="
-                    w-full bg-transparent text-text-primary text-sm
-                    placeholder:text-text-muted leading-relaxed
-                    border-none outline-none resize-y
-                    min-h-[150px] max-h-[400px]
-                  "
-                />
+          {/* Messages List */}
+          <div className="space-y-6">
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in-up`}>
+                {msg.role === 'user' ? (
+                  <div className="bg-primary text-white p-4 rounded-2xl rounded-tr-sm max-w-[85%] shadow-sm whitespace-pre-wrap text-sm leading-relaxed">
+                    {decodeHtml(msg.content)}
+                  </div>
+                ) : (
+                  <div className="w-full">
+                    {/* Mode Indicator Badge */}
+                    {(msg.result?.mode === 'general' || msg.result?.mode === 'rag' || !msg.result?.mode) && (
+                      <div className="flex justify-start mb-2 animate-fade-in">
+                        <div className="px-3 py-1 bg-bg-surface border border-border rounded-full flex items-center gap-2 shadow-sm">
+                          <span className="text-xs font-semibold text-text-secondary">
+                            {msg.result?.mode === 'general' ? '💬 Genel Soru' : '⚖️ Emsal Analizi'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {msg.result?.mode === 'casual' ? (
+                      <div className="bg-bg-surface border border-border p-4 rounded-2xl rounded-tl-sm shadow-sm text-sm text-text-primary leading-relaxed max-w-[85%]">
+                        {decodeHtml(msg.result.conclusion)}
+                      </div>
+                    ) : msg.result?.mode === 'error' ? (
+                      <div className="bg-error/10 border border-error/20 p-4 rounded-2xl rounded-tl-sm shadow-sm text-sm text-error leading-relaxed max-w-[85%] flex items-center gap-2">
+                        <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        {msg.result.conclusion}
+                      </div>
+                    ) : msg.result?.mode === 'general' ? (
+                      <div className="bg-bg-surface border border-border p-6 rounded-2xl rounded-tl-sm shadow-sm text-sm text-text-primary leading-relaxed max-w-[85%]">
+                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                          {decodeHtml(msg.result.conclusion)}
+                        </div>
+                      </div>
+                    ) : (
+                      <ResultsPanel result={msg.result} onSave={() => {}} />
+                    )}
+                  </div>
+                )}
               </div>
+            ))}
 
-              {/* Bottom bar: char counter + submit */}
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                {/* Character counter */}
-                <div className={`text-xs font-mono ${getCharCountColor()}`}>
-                  <span>{charCount}</span>
-                  <span className="text-text-muted"> / {MAX_CHARS}</span>
-                  {charCount > 0 && charCount < MIN_CHARS && (
-                    <span className="ml-2 text-error">
-                      (en az {MIN_CHARS} karakter gerekli)
-                    </span>
-                  )}
+            {loading && (
+              <div className="flex justify-start animate-fade-in-up">
+                <div className="w-full max-w-md p-6 border border-border rounded-2xl bg-bg-surface shadow-sm">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-8 h-8 animate-sway">
+                      <ScalesOfJustice size={32} />
+                    </div>
+                    <span className="text-sm font-medium text-text-primary">MİZAN AI Analiz Ediyor...</span>
+                  </div>
+                  <div className="space-y-3">
+                    {loadingSteps.map((stepText, idx) => {
+                      const isDone = loadingStep > idx;
+                      const isActive = loadingStep === idx;
+                      const isPending = loadingStep < idx;
+                      return (
+                        <div key={idx} className={`flex items-center gap-3 transition-opacity duration-300 ${isPending ? 'opacity-40' : 'opacity-100'}`}>
+                          {isDone ? (
+                            <div className="w-4 h-4 rounded-full bg-success flex items-center justify-center">
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          ) : isActive ? (
+                            <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                          ) : (
+                            <div className="w-4 h-4 rounded-full border-2 border-border" />
+                          )}
+                          <span className={`text-xs ${isActive ? 'text-primary font-medium' : 'text-text-secondary'}`}>
+                            {stepText}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-
-                {/* Keyboard shortcut hint */}
-                <span className="hidden md:inline text-xs text-text-muted">
-                  ⌘ + Enter
-                </span>
               </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              id="analyze-button"
-              onClick={handleSubmit}
-              disabled={!isValid || loading}
-              className="
-                w-full flex items-center justify-center gap-3 px-6 py-4
-                bg-primary hover:bg-primary-hover
-                text-bg-primary font-bold text-base
-                rounded-xl shadow-lg shadow-primary/20
-                transition-all duration-300 cursor-pointer
-                disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none
-                hover:shadow-xl hover:shadow-primary/30
-                active:scale-[0.99]
-              "
-            >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-bg-primary border-t-transparent rounded-full animate-spin" />
-                  Analiz ediliyor...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-                  </svg>
-                  ANALİZ ET
-                </>
-              )}
-            </button>
+            )}
+            
+            {/* Empty state — shown when no query submitted */}
+            {messages.length === 0 && !loading && (
+              <div className="dashboard-empty-state">
+                {/* Pulsing ambient glow */}
+                <div className="dashboard-empty-glow" />
+                <div className="dashboard-empty-content animate-fade-in">
+                  <ScalesOfJustice size={80} className="mx-auto mb-6" />
+                  <h2 className="dashboard-empty-title">
+                    Size nasıl yardımcı olabilirim?
+                  </h2>
+                  <div className="flex flex-wrap justify-center gap-3 max-w-2xl mx-auto">
+                    <button onClick={() => { setCaseDescription('Boşanma davası dilekçesi örneği yazar mısın?'); textareaRef.current?.focus(); }} className="dashboard-chip">⚖️ Dava analizi yap</button>
+                    <button onClick={() => { setCaseDescription('Hırsızlık suçunun cezası nedir?'); textareaRef.current?.focus(); }} className="dashboard-chip">📋 Hukuki soru sor</button>
+                    <button onClick={() => fileInputRef.current?.click()} className="dashboard-chip">📄 Belge yükle</button>
+                    <button onClick={() => { setCaseDescription('İş akdinin haksız feshi emsal kararları'); textareaRef.current?.focus(); }} className="dashboard-chip">🔍 Emsal karar ara</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Loading skeleton */}
-          {loading && (
-            <div className="mt-8 space-y-4 animate-fade-in">
-              <LoadingSkeleton type="card" />
-              <LoadingSkeleton type="card" />
-              <LoadingSkeleton type="text" />
-            </div>
-          )}
-
-          {/* Results panel */}
-          {result && !loading && (
-            <div className="mt-8">
-              <ResultsPanel result={result} />
-            </div>
-          )}
-
-          {/* Empty state — shown when no query submitted */}
-          {!result && !loading && (
-            <div className="mt-16 text-center animate-fade-in opacity-0 delay-300">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <svg className="w-8 h-8 text-primary/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                </svg>
-              </div>
-              <p className="text-text-muted text-sm">
-                Dava detaylarınızı girin ve yapay zeka analizini başlatın
-              </p>
-            </div>
-          )}
+          {/* Main Content Spacer to avoid overlap with bottom bar */}
+          <div className="pb-48" />
+          
+          <div ref={messagesEndRef} />
         </div>
+
+        {/* Fixed Bottom Input Bar */}
+        <div className="fixed bottom-0 left-0 lg:left-72 right-0 p-4 bg-bg-primary/90 backdrop-blur-md border-t border-border z-30">
+          <div className="max-w-4xl mx-auto">
+            {/* Attachment Chip */}
+            {uploadedFile && (
+              <div className="mb-3 flex items-center gap-2 bg-bg-surface border border-border rounded-lg p-2 w-max shadow-sm animate-fade-in-up">
+                <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold text-text-primary">{uploadedFile.name}</span>
+                  <span className="text-[10px] text-text-muted">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                </div>
+                <button
+                  onClick={() => setUploadedFile(null)}
+                  className="ml-3 p-1 hover:bg-bg-surface-hover rounded-full text-text-muted hover:text-error transition-colors cursor-pointer"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            
+            {/* Input Container */}
+            <div className="relative flex items-end bg-bg-input border border-border-input rounded-2xl shadow-card transition-all duration-300 focus-within:shadow-lg focus-within:border-primary/50">
+              
+              {/* Paperclip / File Upload */}
+              <div className="p-3">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".pdf,.docx"
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading}
+                  className="p-2 text-text-muted hover:text-primary transition-colors rounded-full hover:bg-bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Auto-expanding textarea */}
+              <textarea
+                ref={textareaRef}
+                value={caseDescription}
+                onChange={(e) => {
+                  setCaseDescription(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Davanızın detaylarını girin, belge yükleyin veya hukuki bir soru sorun..."
+                rows={4}
+                className="flex-1 max-h-[180px] min-h-[84px] py-3.5 px-2 bg-transparent text-text-primary text-sm placeholder:text-text-muted border-none outline-none resize-none leading-relaxed"
+                style={{ height: '84px' }}
+              />
+
+              {/* Send Button */}
+              <div className="p-2.5">
+                <button
+                  onClick={handleSubmit}
+                  disabled={(!caseDescription.trim() && !uploadedFile) || loading}
+                  className="p-2.5 bg-primary text-bg-primary rounded-full hover:bg-primary-hover disabled:opacity-50 disabled:bg-bg-surface disabled:text-text-muted transition-all cursor-pointer disabled:cursor-not-allowed shadow-md"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            {/* Hint */}
+            <div className="flex justify-center mt-2 px-2">
+              <span className="text-[10px] text-text-muted">
+                MİZAN AI hata yapabilir. Lütfen önemli bilgileri doğrulayın.
+              </span>
+            </div>
+          </div>
+        </div>
+
+
       </main>
     </div>
   );
@@ -258,40 +422,55 @@ export default function DashboardPage() {
  * Parse the raw AI analysis text into structured sections.
  * Handles both the formatted [SECTION] output and plain text fallback.
  */
-function parseAnalysis(analysisText, citedCase, confidence) {
+function parseAnalysis(analysisText, citedCase, confidence, mode = 'rag') {
   if (!analysisText) {
     return {
+      mode,
       caseInfo: {},
-      comparison: '',
+      similarities: '',
+      differences: '',
+      applicability: '',
       conclusion: analysisText || '',
       confidenceScore: Math.round((confidence || 0) * 100),
       sources: [],
     };
   }
 
+  // If it's a general mode, skip parsing the structure
+  if (mode === 'general') {
+    return {
+      mode,
+      caseInfo: {},
+      similarities: '',
+      differences: '',
+      applicability: '',
+      conclusion: analysisText,
+      confidenceScore: 0,
+      sources: [],
+    };
+  }
+
   // Try to extract structured sections from the response
-  let comparison = '';
+  let similarities = '';
+  let differences = '';
+  let applicability = '';
   let conclusion = '';
 
-  // Extract [KARŞILAŞTIRMA ANALİZİ] section
-  const compMatch = analysisText.match(
-    /\[KARŞILAŞTIRMA ANALİZİ\]\s*\n?([\s\S]*?)(?=\[SONUÇ\]|$)/i
-  );
-  if (compMatch) {
-    comparison = compMatch[1].trim();
-  }
+  const simMatch = analysisText.match(/\[BENZERLİKLER\]\s*\n?([\s\S]*?)(?=\[FARKLILIKLAR\]|\[UYGULANABİLİRLİK\]|\[SONUÇ\]|$)/i);
+  if (simMatch) similarities = simMatch[1].trim();
 
-  // Extract [SONUÇ] section
-  const concMatch = analysisText.match(
-    /\[SONUÇ\]\s*\n?([\s\S]*?)$/i
-  );
-  if (concMatch) {
-    conclusion = concMatch[1].trim();
-  }
+  const diffMatch = analysisText.match(/\[FARKLILIKLAR\]\s*\n?([\s\S]*?)(?=\[UYGULANABİLİRLİK\]|\[SONUÇ\]|$)/i);
+  if (diffMatch) differences = diffMatch[1].trim();
 
-  // If no structured sections found, use the whole text as the comparison
-  if (!comparison && !conclusion) {
-    comparison = analysisText;
+  const appMatch = analysisText.match(/\[UYGULANABİLİRLİK\]\s*\n?([\s\S]*?)(?=\[SONUÇ\]|$)/i);
+  if (appMatch) applicability = appMatch[1].trim();
+
+  const concMatch = analysisText.match(/\[SONUÇ\]\s*\n?([\s\S]*?)$/i);
+  if (concMatch) conclusion = concMatch[1].trim();
+
+  // If no structured sections found, use the whole text
+  if (!similarities && !differences && !applicability && !conclusion) {
+    conclusion = analysisText;
   }
 
   // Build case info from citedCase object (handle both camelCase and snake_case)
@@ -308,8 +487,11 @@ function parseAnalysis(analysisText, citedCase, confidence) {
     : {};
 
   return {
+    mode,
     caseInfo,
-    comparison,
+    similarities,
+    differences,
+    applicability,
     conclusion,
     confidenceScore: Math.round((confidence || 0) * 100),
     sources: citedCase

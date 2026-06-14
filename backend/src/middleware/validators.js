@@ -11,11 +11,10 @@ const validateQuery = [
     .withMessage('Dava açıklaması boş olamaz.')
     .isString()
     .withMessage('Dava açıklaması metin formatında olmalıdır.')
-    .isLength({ min: 50 })
-    .withMessage('Dava açıklaması en az 50 karakter olmalıdır.')
-    .isLength({ max: 2000 })
-    .withMessage('Dava açıklaması en fazla 2000 karakter olabilir.')
-    .escape(),
+    .isLength({ min: 2 })
+    .withMessage('Dava açıklaması en az 2 karakter olmalıdır.')
+    .isLength({ max: 5000 })
+    .withMessage('Dava açıklaması en fazla 5000 karakter olabilir.'),
 ];
 
 /**

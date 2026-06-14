@@ -30,8 +30,14 @@ Yanıtını aşağıdaki bölümlere ayır:
 - Karar Tarihi: (tarih)
 - Konu: (kısa özet)
 
-[KARŞILAŞTIRMA ANALİZİ]
-Kullanıcının davasını emsal kararla karşılaştır. Benzerlikler ve farklılıklar nelerdir? Emsal kararın bu davaya uygulanabilirliğini değerlendir.
+[BENZERLİKLER]
+Kullanıcının davası ile emsal karar arasındaki benzer noktaları madde madde listele.
+
+[FARKLILIKLAR]
+Kullanıcının davası ile emsal karar arasındaki farklı noktaları madde madde listele.
+
+[UYGULANABİLİRLİK]
+Emsal kararın kullanıcının davasına uygulanabilirliğini detaylıca değerlendir.
 
 [SONUÇ]
 Analiz sonucunu özetle ve emsal kararın kullanıcının davasına olası etkisini belirt.`;

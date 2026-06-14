@@ -1,22 +1,35 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import ScalesOfJustice from '../components/ScalesOfJustice';
+import ThemeToggle from '../components/ThemeToggle';
 
-/**
- * LandingPage — full-screen hero with animated scales, feature cards,
- * and Google OAuth login button.
- */
+/* ─── Intersection Observer Hook ─── */
+// Removed useInView, using scrolled state instead for foolproof animations.
+
 export default function LandingPage() {
   const { isAuthenticated, loading, login } = useAuth();
   const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
+  const [tableInView, setTableInView] = useState(false);
 
-  // Redirect authenticated users to dashboard
   useEffect(() => {
     if (!loading && isAuthenticated) {
       navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, loading, navigate]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+      if (window.scrollY > 200) {
+        setTableInView(true);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    // Initial check
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   if (loading) {
     return (
@@ -26,184 +39,275 @@ export default function LandingPage() {
     );
   }
 
+  const comparisonRows = [
+    { feature: 'Emsal Karar Araması', mizan: 'Gerçek Yargıtay kararları', mizanIcon: '✅', other: 'Mevcut değil', otherIcon: '❌' },
+    { feature: 'Hallüsinasyon Riski', mizan: 'Sıfır — sadece gerçek veri', mizanIcon: '✅', other: 'Yüksek risk', otherIcon: '⚠️' },
+    { feature: 'Türk Mevzuatı', mizan: 'Güncel ve kapsamlı', mizanIcon: '✅', other: 'Sınırlı bilgi', otherIcon: '⚠️' },
+    { feature: 'Kaynak Şeffaflığı', mizan: 'Her cevap kaynakla', mizanIcon: '✅', other: 'Kaynak gösterilmez', otherIcon: '❌' },
+    { feature: 'Hukuki İş Akışı', mizan: 'Avukatlar için tasarlandı', mizanIcon: '✅', other: 'Genel amaçlı', otherIcon: '❌' },
+    { feature: 'Veri Gizliliği', mizan: 'Eğitimde kullanılmaz', mizanIcon: '✅', other: 'Belirsiz', otherIcon: '❓' },
+  ];
+
+  const getIconClass = (icon) => {
+    if (icon === '✅') return 'icon-success';
+    if (icon === '❌') return 'icon-error';
+    if (icon === '⚠️' || icon === '❓') return 'icon-warning';
+    return '';
+  };
+
   return (
-    <div className="min-h-screen bg-bg-primary relative overflow-hidden">
-      {/* Ambient glow effects */}
-      <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-100px] right-[-100px] w-[400px] h-[400px] bg-primary/3 rounded-full blur-[100px] pointer-events-none" />
-
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-12 py-6">
-        <div className="flex items-center gap-3">
-          <svg viewBox="0 0 40 40" fill="none" className="w-8 h-8">
-            <circle cx="20" cy="6" r="3" fill="#C9A84C" />
-            <line x1="20" y1="9" x2="20" y2="34" stroke="#C9A84C" strokeWidth="2" />
-            <line x1="8" y1="14" x2="32" y2="14" stroke="#C9A84C" strokeWidth="2" />
-            <path d="M5 14 L8 24 L11 14" fill="none" stroke="#C9A84C" strokeWidth="1.5" />
-            <path d="M4 24 Q8 30 12 24" fill="none" stroke="#C9A84C" strokeWidth="1.5" />
-            <path d="M29 14 L32 24 L35 14" fill="none" stroke="#C9A84C" strokeWidth="1.5" />
-            <path d="M28 24 Q32 30 36 24" fill="none" stroke="#C9A84C" strokeWidth="1.5" />
-            <rect x="14" y="33" width="12" height="3" rx="1.5" fill="#C9A84C" />
-          </svg>
-          <span className="font-heading text-xl font-bold text-primary">MİZAN AI</span>
-        </div>
-        <button
-          onClick={login}
-          className="hidden sm:flex items-center gap-2 px-5 py-2 text-sm font-medium text-bg-primary bg-primary hover:bg-primary-hover rounded-lg transition-all duration-200 cursor-pointer"
-        >
-          Giriş Yap
-        </button>
-      </header>
-
-      {/* Hero Section */}
-      <main className="relative z-10 max-w-6xl mx-auto px-6 md:px-12 pt-12 md:pt-20 pb-20">
-        <div className="flex flex-col items-center text-center">
-          {/* Animated scales */}
-          <div className="mb-8 opacity-0 animate-fade-in">
-            <ScalesOfJustice size={180} />
+    <div className="landing-root min-h-screen bg-bg-primary text-text-primary font-body overflow-x-hidden selection:bg-primary-muted selection:text-primary relative z-10">
+      
+      {/* ── NAVBAR ── */}
+      <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-bg-surface/90 backdrop-blur-md shadow-sm border-b border-border' : 'bg-transparent'}`}>
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⚖️</span>
+            <span className="font-heading font-bold text-xl tracking-wide">MİZAN AI</span>
           </div>
 
-          {/* Heading */}
-          <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold mb-6 opacity-0 animate-fade-in-up leading-tight">
-            <span className="text-gold-gradient">Türk Hukuku İçin</span>
-            <br />
-            <span className="text-text-primary">Yapay Zeka Asistanı</span>
-          </h1>
+          {/* Actions */}
+          <div className="flex items-center gap-4">
+            <div className="bg-bg-surface border border-border rounded-full p-1 shadow-sm">
+              <ThemeToggle />
+            </div>
+            <button onClick={login} className="hidden sm:block px-5 py-2 text-sm font-semibold rounded-lg border-2 border-primary text-primary hover:bg-primary-muted transition-colors">
+              Giriş Yap
+            </button>
+            <button onClick={login} className="px-5 py-2.5 text-sm font-semibold rounded-lg bg-[#C9A84C] text-[#1A1A1A] hover:bg-[#B49642] transition-colors shadow-md">
+              Başlayın
+            </button>
+          </div>
+        </div>
+      </nav>
 
-          {/* Subtext */}
-          <p className="text-text-secondary text-lg md:text-xl max-w-2xl mb-10 opacity-0 animate-fade-in-up delay-200 leading-relaxed">
-            Emsal kararları saniyeler içinde bulun, davalarınızı güçlendirin.
+      {/* ── HERO ── */}
+      <section className="pt-40 pb-20 px-6 max-w-7xl mx-auto relative z-10">
+        <div className="flex flex-col lg:flex-row items-center gap-16">
+          {/* Left Content (60%) */}
+          <div className="lg:w-3/5 space-y-8 animate-slide-up">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-muted border border-primary/20 text-primary text-xs font-semibold tracking-wide">
+              <span>🔒</span> KVKK Uyumlu
+            </div>
+            
+            <h1 className="font-display font-bold leading-[1.1] text-[48px] lg:text-[72px] tracking-[-0.02em]">
+              Türk Hukuku İçin <br />
+              <span className="text-gradient">Yapay Zeka Asistanı</span>
+            </h1>
+            
+            <p className="text-lg text-text-secondary max-w-xl leading-relaxed">
+              Emsal kararları saniyeler içinde bulun. Sıfır hallüsinasyon, kaynaklı analiz.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-4 pt-2">
+              <button onClick={login} className="flex items-center gap-3 px-8 py-4 rounded-xl bg-white text-[#1A1A1A] border border-[#E5E7EB] font-semibold hover:-translate-y-1 hover:shadow-md transition-all shadow-sm">
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                </svg>
+                Google ile Başlayın
+              </button>
+              <button className="px-8 py-4 rounded-xl border-2 border-border font-semibold hover:border-text-primary hover:bg-bg-surface-hover transition-all">
+                Demo İzle
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 text-sm text-text-muted font-medium pt-4">
+              <span>500+ Emsal Karar</span>
+              <span>·</span>
+              <span>Yargıtay Veritabanı</span>
+              <span>·</span>
+              <span>KVKK Uyumlu</span>
+            </div>
+          </div>
+
+          {/* Right Content - Mockup (40%) */}
+          <div className="lg:w-2/5 w-full max-w-md animate-float" style={{ animationDelay: '0.2s' }}>
+            <div className="bg-bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden relative z-10">
+              {/* Fake header */}
+              <div className="bg-bg-primary border-b border-border p-4 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-[#1A1A1A] text-xs font-bold">M</div>
+                <div>
+                  <div className="text-sm font-semibold">MİZAN AI</div>
+                  <div className="text-[10px] text-text-muted">Hukuk Asistanı</div>
+                </div>
+              </div>
+              {/* Fake chat */}
+              <div className="p-6 space-y-6">
+                <div className="flex justify-end">
+                  <div className="bg-text-primary text-bg-primary px-4 py-3 rounded-2xl rounded-tr-sm text-sm max-w-[85%]">
+                    Müvekkilim haksız feshe uğradı, benzer emsal kararlar bulabilir misin?
+                  </div>
+                </div>
+                <div className="flex justify-start">
+                  <div className="bg-bg-primary border border-border p-4 rounded-2xl rounded-tl-sm w-full shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="px-2 py-1 bg-success/10 text-success text-[10px] font-bold rounded">⚖️ EMSAL KARAR BULUNDU</span>
+                    </div>
+                    <div className="font-semibold text-sm mb-1 text-primary">Yargıtay 9. HD · 2019/12345</div>
+                    <p className="text-xs text-text-secondary leading-relaxed mb-4">
+                      "...iş sözleşmesinin işverence haksız olarak feshedildiği anlaşıldığından kıdem ve ihbar tazminatının kabulüne karar verilmesi..."
+                    </p>
+                    <div className="flex items-center justify-between text-[10px] font-medium text-text-muted">
+                      <span>%87 Güvenilirlik</span>
+                      <div className="w-24 h-1.5 bg-border rounded-full overflow-hidden">
+                        <div className="h-full bg-success w-[87%] rounded-full"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── COMPARISON TABLE ── */}
+      <section className="py-24 bg-bg-surface border-y border-border relative z-10">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className={`text-center mb-12 transition-all duration-700 ${tableInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[30px]'}`}>
+            <h2 className="font-heading text-4xl font-bold mb-4">Sıradan Yapay Zekadan Farkımız</h2>
+            <p className="text-text-secondary text-lg">Genel amaçlı modellerin aksine, doğrudan Türk hukuk verisiyle çalışır.</p>
+          </div>
+          
+          <div className="overflow-x-auto bg-bg-primary border border-border rounded-2xl shadow-sm">
+            <table className="comparison-table w-full">
+              <thead>
+                <tr>
+                  <th>Özellik</th>
+                  <th className="col-mizan">MİZAN AI</th>
+                  <th>Genel Yapay Zekalar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonRows.map((row, idx) => {
+                  // Staggered animation style
+                  const animStyle = tableInView 
+                    ? { opacity: 1, transform: 'translateY(0)', transition: `all 500ms cubic-bezier(0.4, 0, 0.2, 1) ${idx * 150}ms` } 
+                    : { opacity: 0, transform: 'translateY(30px)' };
+                  
+                  return (
+                    <tr key={idx} style={animStyle}>
+                      <td className="font-semibold">{row.feature}</td>
+                      <td className="col-mizan">
+                        <div className="flex items-center gap-2">
+                          <span className={getIconClass(row.mizanIcon)}>{row.mizanIcon}</span>
+                          <span className="text-text-primary font-medium">{row.mizan}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <span className={getIconClass(row.otherIcon)}>{row.otherIcon}</span>
+                          <span className="text-text-secondary">{row.other}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FEATURES ── */}
+      <section className="py-24 px-6 max-w-7xl mx-auto relative z-10">
+        <div className="text-center mb-16">
+          <h2 className="font-heading text-4xl font-bold mb-4">Neden MİZAN AI?</h2>
+          <p className="text-text-secondary text-lg">Hukuki süreçlerinizi hızlandırmak için tasarlandı.</p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="glass-panel p-8 rounded-2xl hover:-translate-y-2 transition-transform duration-300 shadow-sm">
+            <div className="text-4xl mb-6">⚖️</div>
+            <h3 className="font-heading text-2xl font-bold mb-3">Emsal Karar Analizi</h3>
+            <p className="text-text-secondary leading-relaxed">
+              Yargıtay ve yüksek mahkeme kararlarıyla davanızı saniyeler içinde karşılaştırın
+            </p>
+          </div>
+          <div className="glass-panel p-8 rounded-2xl hover:-translate-y-2 transition-transform duration-300 shadow-sm">
+            <div className="text-4xl mb-6">🛡️</div>
+            <h3 className="font-heading text-2xl font-bold mb-3">Sıfır Hallüsinasyon</h3>
+            <p className="text-text-secondary leading-relaxed">
+              Yapay zeka yalnızca gerçek mahkeme kararlarına dayalı analiz yapar, asla uydurmaz
+            </p>
+          </div>
+          <div className="glass-panel p-8 rounded-2xl hover:-translate-y-2 transition-transform duration-300 shadow-sm">
+            <div className="text-4xl mb-6">📄</div>
+            <h3 className="font-heading text-2xl font-bold mb-3">Belge Analizi</h3>
+            <p className="text-text-secondary leading-relaxed">
+              PDF ve Word belgelerinizi yükleyin, dava detaylarını otomatik çıkarın
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── STATS (Inverted) ── */}
+      <section className="bg-[#111118] text-white py-20 border-y border-[#1F2937] relative z-10">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
+            <div>
+              <div className="font-heading text-5xl font-bold text-[#C9A84C] mb-2">500+</div>
+              <div className="text-sm text-gray-400 uppercase tracking-widest font-semibold">Emsal Karar</div>
+            </div>
+            <div>
+              <div className="font-heading text-5xl font-bold text-[#C9A84C] mb-2">%87</div>
+              <div className="text-sm text-gray-400 uppercase tracking-widest font-semibold">Ort. Güvenilirlik Skoru</div>
+            </div>
+            <div>
+              <div className="font-heading text-5xl font-bold text-[#C9A84C] mb-2">3sn</div>
+              <div className="text-sm text-gray-400 uppercase tracking-widest font-semibold">Ortalama Analiz Süresi</div>
+            </div>
+            <div>
+              <div className="font-heading text-5xl font-bold text-[#C9A84C] mb-2">100%</div>
+              <div className="text-sm text-gray-400 uppercase tracking-widest font-semibold">Türk Hukuku Odaklı</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA ── */}
+      <section className="py-32 px-6 text-center relative overflow-hidden z-10">
+        <div className="relative z-10 max-w-3xl mx-auto space-y-8">
+          <h2 className="font-heading text-4xl sm:text-5xl font-bold">Davanızı Güçlendirin</h2>
+          <p className="text-xl text-text-secondary">
+            Türkiye'nin en gelişmiş hukuk yapay zeka asistanını ücretsiz deneyin
           </p>
-
-          {/* Google Login Button */}
-          <button
-            onClick={login}
-            id="login-google-button"
-            className="
-              group flex items-center gap-3 px-8 py-4
-              bg-primary hover:bg-primary-hover
-              text-bg-primary font-semibold text-lg
-              rounded-xl shadow-lg shadow-primary/20
-              hover:shadow-xl hover:shadow-primary/30
-              transition-all duration-300 cursor-pointer
-              opacity-0 animate-fade-in-up delay-300
-              hover:scale-[1.02] active:scale-[0.98]
-            "
-          >
-            {/* Google Icon */}
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                fill="#EA4335"
-              />
+          <button onClick={login} className="inline-flex items-center gap-3 px-10 py-5 rounded-xl bg-white text-[#1A1A1A] border border-[#E5E7EB] text-lg font-semibold hover:-translate-y-1 hover:shadow-xl transition-all shadow-md">
+             <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
             </svg>
-            Google ile Giriş Yap
+            Google ile Ücretsiz Başlayın
           </button>
         </div>
+      </section>
 
-        {/* Feature Cards */}
-        <section className="mt-24 md:mt-32">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Card 1: Semantik Arama */}
-            <div className="
-              group bg-bg-surface border border-border rounded-2xl p-7
-              hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5
-              transition-all duration-300 hover:-translate-y-1
-              opacity-0 animate-fade-in-up delay-400
-            ">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/20 transition-colors">
-                <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                </svg>
-              </div>
-              <h3 className="font-heading text-xl font-semibold text-text-primary mb-3">
-                Semantik Arama
-              </h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                Yapay zeka destekli anlamsal arama teknolojisi ile davalarınıza en uygun emsal kararları bulun. Anahtar kelime eşleşmesinin ötesine geçin.
-              </p>
-            </div>
-
-            {/* Card 2: Sıfır Hallüsinasyon */}
-            <div className="
-              group bg-bg-surface border border-border rounded-2xl p-7
-              hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5
-              transition-all duration-300 hover:-translate-y-1
-              opacity-0 animate-fade-in-up delay-500
-            ">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/20 transition-colors">
-                <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                </svg>
-              </div>
-              <h3 className="font-heading text-xl font-semibold text-text-primary mb-3">
-                Sıfır Hallüsinasyon
-              </h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                Yalnızca doğrulanmış emsal kararlara dayanan yanıtlar. Uydurma bilgi riski olmadan güvenle hukuki araştırma yapın.
-              </p>
-            </div>
-
-            {/* Card 3: Emsal Atıf */}
-            <div className="
-              group bg-bg-surface border border-border rounded-2xl p-7
-              hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5
-              transition-all duration-300 hover:-translate-y-1
-              opacity-0 animate-fade-in-up delay-500
-            ">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/20 transition-colors">
-                <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                </svg>
-              </div>
-              <h3 className="font-heading text-xl font-semibold text-text-primary mb-3">
-                Emsal Atıf
-              </h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                Her yanıtta mahkeme, esas no, karar no ve tarih bilgileriyle birlikte tam atıf sunulur. Kaynaklarınız her zaman şeffaftır.
-              </p>
+      {/* ── FOOTER ── */}
+      <footer className="border-t border-border bg-bg-surface py-12 px-6 relative z-10">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">⚖️</span>
+            <div>
+              <div className="font-heading font-bold text-lg">MİZAN AI</div>
+              <div className="text-xs text-text-muted">Türk Hukukunun Yapay Zeka Asistanı</div>
             </div>
           </div>
-        </section>
-
-        {/* Stats Section */}
-        <section className="mt-20 flex flex-wrap justify-center gap-8 md:gap-16 opacity-0 animate-fade-in-up delay-500">
-          <div className="text-center">
-            <p className="text-3xl font-bold text-gold-gradient font-heading">RAG</p>
-            <p className="text-xs text-text-muted mt-1 uppercase tracking-wider">Teknoloji</p>
+          
+          <div className="flex items-center gap-6 text-sm text-text-secondary font-medium">
+            <a href="#" className="hover:text-primary transition-colors">Hakkımızda</a>
+            <a href="#" className="hover:text-primary transition-colors">Gizlilik</a>
+            <a href="#" className="hover:text-primary transition-colors">Kullanım Koşulları</a>
           </div>
-          <div className="text-center">
-            <p className="text-3xl font-bold text-gold-gradient font-heading">768D</p>
-            <p className="text-xs text-text-muted mt-1 uppercase tracking-wider">Vektör Boyutu</p>
-          </div>
-          <div className="text-center">
-            <p className="text-3xl font-bold text-gold-gradient font-heading">Gemini</p>
-            <p className="text-xs text-text-muted mt-1 uppercase tracking-wider">Yapay Zeka</p>
-          </div>
-          <div className="text-center">
-            <p className="text-3xl font-bold text-gold-gradient font-heading">%100</p>
-            <p className="text-xs text-text-muted mt-1 uppercase tracking-wider">Atıf Oranı</p>
-          </div>
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-border py-6 text-center">
-        <p className="text-xs text-text-muted">
-          MİZAN AI © 2026 — <span className="italic">Adaletin ölçüsü, bilginin gücüdür.</span>
-        </p>
+        </div>
+        <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-border text-center text-sm text-text-muted">
+          © 2026 MİZAN AI. Tüm hakları saklıdır.
+        </div>
       </footer>
     </div>
   );

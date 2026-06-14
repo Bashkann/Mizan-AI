@@ -6,9 +6,17 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "ingest": "node scripts/ingestData.js"
+    "ingest": "node scripts/ingestData.js",
+    "ingest:hf": "node scripts/ingestHuggingFace.js",
+    "fix:metadata": "node scripts/fixMetadata.js"
   },
-  "keywords": ["legal", "ai", "turkish", "law", "rag"],
+  "keywords": [
+    "legal",
+    "ai",
+    "turkish",
+    "law",
+    "rag"
+  ],
   "author": "Mizan AI Team",
   "license": "ISC",
   "dependencies": {
@@ -22,6 +30,7 @@
     "express-validator": "^7.2.1",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.1.1",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.13.1",
